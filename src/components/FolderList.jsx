@@ -17,7 +17,7 @@ function FolderList({ updateTrigger }) {
       setFolders(response.data);
     } catch (error) {
       console.error('Error fetching folders:', error);
-      // ... (error handling remains the same)
+      alert(`Error fetching folders: ${error.response?.data?.error || error.message}`);
     }
   };
 

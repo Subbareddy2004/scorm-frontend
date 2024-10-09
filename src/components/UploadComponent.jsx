@@ -30,7 +30,7 @@ function UploadComponent({ onUploadSuccess }) {
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const relativePath = file.webkitRelativePath || file.name;
-      formData.append(`files/${relativePath}`, file);
+      formData.append('files', file, relativePath);
     }
 
     try {
