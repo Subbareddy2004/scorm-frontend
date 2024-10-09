@@ -2,24 +2,6 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { API_URL } from '../config';
 
-const MAX_FILE_SIZE = 150 * 1024 * 1024; // 150MB
-
-const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
-
-const uploadChunk = async (chunk, fileName, chunkIndex, totalChunks) => {
-  const formData = new FormData();
-  formData.append('file', chunk, fileName);
-  formData.append('chunkIndex', chunkIndex);
-  formData.append('totalChunks', totalChunks);
-
-  try {
-    await axios.post(`${API_URL}/upload-chunk`, formData);
-  } catch (error) {
-    console.error('Error uploading chunk:', error);
-    throw error;
-  }
-};
-
 function UploadComponent({ onUploadSuccess }) {
   const [folderName, setFolderName] = useState('');
   const [files, setFiles] = useState(null);
@@ -31,53 +13,46 @@ function UploadComponent({ onUploadSuccess }) {
   };
 
   const handleFileChange = (e) => {
-    const selectedFiles = e.target.files;
-    let totalSize = 0;
-    
-    for (let i = 0; i < selectedFiles.length; i++) {
-      totalSize += selectedFiles[i].size;
-    }
-    
-    if (totalSize > MAX_FILE_SIZE) {
-      alert(`Total file size exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit. Please select smaller files.`);
-      e.target.value = null; // Clear the file input
-      return;
-    }
-    
-    setFiles(selectedFiles);
+    setFiles(e.target.files);
   };
 
   const handleUpload = async () => {
-    if (!files || files.length === 0) {
-      alert('Please select files to upload');
+    if (!folderName || !files) {
+      alert('Please enter a folder name and select files to upload.');
       return;
     }
 
     setIsUploading(true);
     setUploadProgress(0);
 
-    try {
-      for (let file of files) {
-        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-        
-        for (let i = 0; i < totalChunks; i++) {
-          const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-          await uploadChunk(chunk, file.name, i, totalChunks);
-          setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
-        }
-      }
+    const formData = new FormData();
+    formData.append('folderName', folderName);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const relativePath = file.webkitRelativePath || file.name;
+      formData.append(`files/${relativePath}`, file);
+    }
 
-      // Notify server that all chunks have been uploaded
-      await axios.post(`${API_URL}/complete-upload`, { fileName: files[0].name });
-      
-      alert('Upload completed successfully');
+    try {
+      const response = await axios.post(`${API_URL}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percentCompleted);
+        },
+      });
+      alert(response.data.message);
+      setFolderName('');
+      setFiles(null);
+      setUploadProgress(0);
       onUploadSuccess();
     } catch (error) {
-      console.error('Error during upload:', error);
-      alert(`Upload failed: ${error.message}`);
+      console.error('Error uploading folder:', error.response?.data || error.message);
+      alert(`Error uploading folder: ${error.response?.data?.details || error.message}`);
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
     }
   };
 

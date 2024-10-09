@@ -1,1 +1,1 @@
-export const API_URL = 'https://scorm-backend.vercel.app';
+export const API_URL = 'http://localhost:3000';
