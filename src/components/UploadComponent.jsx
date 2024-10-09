@@ -48,21 +48,37 @@ function UploadComponent({ onUploadSuccess }) {
   };
 
   const handleUpload = async () => {
-    if (!files.length) return;
-
-    for (let file of files) {
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-      
-      for (let i = 0; i < totalChunks; i++) {
-        const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-        await uploadChunk(chunk, file.name, i, totalChunks);
-      }
+    if (!files || files.length === 0) {
+      alert('Please select files to upload');
+      return;
     }
 
-    // Notify server that all chunks have been uploaded
-    await axios.post(`${API_URL}/complete-upload`, { fileName: files[0].name });
-    
-    onUploadSuccess();
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    try {
+      for (let file of files) {
+        const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+        
+        for (let i = 0; i < totalChunks; i++) {
+          const chunk = file.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
+          await uploadChunk(chunk, file.name, i, totalChunks);
+          setUploadProgress(Math.round(((i + 1) / totalChunks) * 100));
+        }
+      }
+
+      // Notify server that all chunks have been uploaded
+      await axios.post(`${API_URL}/complete-upload`, { fileName: files[0].name });
+      
+      alert('Upload completed successfully');
+      onUploadSuccess();
+    } catch (error) {
+      console.error('Error during upload:', error);
+      alert(`Upload failed: ${error.message}`);
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
   };
 
   return (
